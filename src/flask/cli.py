@@ -574,6 +574,7 @@ class FlaskGroup(AppGroup):
             self.add_command(run_command)
             self.add_command(shell_command)
             self.add_command(routes_command)
+            self.add_command(startproject_command)
 
         self._loaded_plugin_commands = False
 
@@ -1087,6 +1088,101 @@ def routes_command(sort: str, all_methods: bool) -> None:
 
     for row in rows:
         click.echo(template.format(*row))
+
+
+def _create_file(filename: str, directory_name: str, content: str = "") -> None:
+    """Create a new file with the given content.
+
+    :param name: The name of the file.
+    :param content: The content of the file.
+
+    :return: None
+    """
+    if not os.path.exists(directory_name):
+        raise FileNotFoundError(f"Directory {directory_name!r} does not exists")
+    with open(filename, "w") as f:
+        f.write(content)
+
+
+def _create_project(name: str) -> None:
+    """Create a new Flask project.
+
+    :param name: The name of the project.
+
+    :raises click.UsageError: If the directory already exists.
+
+    :return: None
+    """
+    if os.path.exists(name):
+        raise click.UsageError(f"Directory {name!r} already exists.")
+
+    project_directory = os.getcwd() + os.sep + name.lower()
+    models_directory = project_directory + os.sep + "models"
+    routes_directory = project_directory + os.sep + "routes"
+    services_directory = project_directory + os.sep + "services"
+    templates_directory = project_directory + os.sep + "templates"
+    static_directory = project_directory + os.sep + "static"
+    repositories_directory = project_directory + os.sep + "repository"
+    utils_directory = project_directory + os.sep + "utils"
+
+    # create project directory and change to it
+    # create __init__.py file in the project directory to make it a package
+    os.mkdir(project_directory)
+
+    # create directories and __init__.py files in the directories
+    os.mkdir(models_directory)
+    os.mkdir(routes_directory)
+    os.mkdir(services_directory)
+    os.mkdir(templates_directory)
+    os.mkdir(static_directory)
+    os.mkdir(repositories_directory)
+    os.mkdir(utils_directory)
+
+    for directory in os.listdir(project_directory):
+        if (
+            os.path.isdir(os.path.join(project_directory, directory))
+            and not directory.startswith("__")
+            and not directory.startswith(".")
+            and not directory.startswith("static")
+            and not directory.startswith("templates")
+        ):
+            _create_file(
+                filename=os.path.join(project_directory, directory, "__init__.py"),
+                directory_name=os.path.join(project_directory, directory),
+            )
+
+
+@click.command("startproject", help="""Create a new Flask project.""")
+@click.option(
+    "--name",
+    help="""\
+The name of the project.
+This will be the name of the folder containing the project.
+
+Project names should be all lowercase with no spaces or digits.
+
+Project names should not conflict with standard Python modules.
+
+Project names can contain underscores only.
+
+NB: If the project name is not provided, the default name is 'my_project'.
+""",
+    default="my_project",
+)
+def startproject_command(name: str) -> None:
+    """Create a new Flask project."""
+    if name.lower() == "flask":
+        raise click.UsageError("The project name 'flask' is not allowed.")
+
+    if not re.match(r"^[a-z_]+$", name):
+        raise click.UsageError(
+            """\
+Project names should be all lowercase with no spaces and can contain
+underscores only.
+"""
+        )
+    _create_project(name)
+    print(f"Project {name!r} created successfully.")
 
 
 cli = FlaskGroup(
